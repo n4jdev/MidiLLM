@@ -1,6 +1,8 @@
-streamlit
-numpy
-pretty_midi
+beautifulsoup4
+mido
+pretty-midi
 pyfluidsynth
-soundfile
 requests
+scipy
+soundfile 
+streamlit
