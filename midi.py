@@ -6,6 +6,7 @@ import io
 import pretty_midi
 import numpy as np
 import soundfile as sf
+import fluidsynth
 
 API_URL = "https://ffa.chat/api/chat/completions"
 HEADERS = {
@@ -158,7 +159,25 @@ def create_midi(composition):
     return midi
 
 def create_audio(midi):
-    audio = midi.fluidsynth()
+    fs = fluidsynth.Synth()
+    fs.start()
+
+    sfid = fs.sfload("path/to/your/soundfont.sf2")  # Replace with the path to your SoundFont file
+
+    # Convert MIDI to audio using FluidSynth
+    audio = np.zeros((int(midi.get_end_time() * 44100), 2))  # Stereo audio buffer
+    
+    for instrument in midi.instruments:
+        fs.program_select(0, sfid, 0, instrument.program)
+        for note in instrument.notes:
+            fs.noteon(0, note.pitch, note.velocity)
+            start_sample = int(note.start * 44100)
+            end_sample = int(note.end * 44100)
+            audio[start_sample:end_sample] += fs.get_samples((end_sample - start_sample))
+            fs.noteoff(0, note.pitch)
+
+    fs.delete()
+    
     return audio
 
 def main():
