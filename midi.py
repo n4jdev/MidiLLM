@@ -594,8 +594,7 @@ Output 2:
     ]
 }
 
-Create a unique composition based on the user's input or request. Consider the genre, mood, and specific instrumentation requests when crafting your response. Ensure that the composition is between 30-300 seconds long.
-"""
+Create a unique composition based on the user's input or request. Consider the genre, mood, and specific instrumentation requests when crafting your response. Ensure that the composition is between 30-300 seconds long.""" # System prompt removed as requested
 
 @st.cache_data
 def create_composition(user_input):
@@ -766,26 +765,42 @@ def apply_sidechain(midi, composition):
     
     return midi
 
-def create_audio(midi, sample_rate=44100):
-    # Find the end time of the last note
-    end_time = max(max(note.end for note in instrument.notes) for instrument in midi.instruments)
-    
-    # Create a sine wave representation of the MIDI
-    audio = np.zeros(int(end_time * sample_rate))
-    
-    for instrument in midi.instruments:
-        for note in instrument.notes:
-            t = np.linspace(0, note.end - note.start, int((note.end - note.start) * sample_rate), False)
-            freq = pretty_midi.note_number_to_hz(note.pitch)
-            note_audio = (note.velocity / 127.0) * np.sin(2 * np.pi * freq * t)
-            
-            start_sample = int(note.start * sample_rate)
-            end_sample = start_sample + len(note_audio)
-            audio[start_sample:end_sample] += note_audio
-    
-    # Normalize audio
-    audio = audio / np.max(np.abs(audio))
-    return audio
+def create_audio(midi, sample_rate=44100, max_duration=300):
+    try:
+        if not any(instrument.notes for instrument in midi.instruments):
+            return np.zeros(int(sample_rate))  # Return 1 second of silence
+
+        end_time = min(max(max(note.end for note in instrument.notes) for instrument in midi.instruments), max_duration)
+        audio = np.zeros(int(end_time * sample_rate))
+        
+        for instrument in midi.instruments:
+            for note in instrument.notes:
+                t = np.linspace(0, note.end - note.start, int((note.end - note.start) * sample_rate), False)
+                freq = pretty_midi.note_number_to_hz(note.pitch)
+                note_audio = (note.velocity / 127.0) * np.sin(2 * np.pi * freq * t)
+                
+                start_sample = int(note.start * sample_rate)
+                end_sample = start_sample + len(note_audio)
+                
+                if end_sample > len(audio):
+                    end_sample = len(audio)
+                    note_audio = note_audio[:end_sample - start_sample]
+                
+                audio[start_sample:end_sample] += note_audio
+        
+        # Normalize audio
+        max_val = np.max(np.abs(audio))
+        if max_val > 0:
+            audio = audio / max_val
+        
+        if np.isnan(audio).any() or np.isinf(audio).any():
+            print("Warning: NaN or Inf values detected in audio")
+            audio = np.nan_to_num(audio)  # Replace NaN and Inf with valid values
+        
+        return audio
+    except Exception as e:
+        print(f"Error in create_audio: {str(e)}")
+        return np.zeros(int(sample_rate))  # Return 1 second of silence
 
 def plot_piano_roll(midi, ax=None):
     if ax is None:
