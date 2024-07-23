@@ -7,6 +7,7 @@ import pretty_midi
 import numpy as np
 import soundfile as sf
 import fluidsynth
+import os
 
 API_URL = "https://ffa.chat/api/chat/completions"
 HEADERS = {
@@ -158,11 +159,11 @@ def create_midi(composition):
     
     return midi
 
-def create_audio(midi):
+def create_audio(midi, soundfont_path):
     fs = fluidsynth.Synth()
     fs.start()
 
-    sfid = fs.sfload("path/to/your/soundfont.sf2")  # Replace with the path to your SoundFont file
+    sfid = fs.sfload(soundfont_path)
 
     # Convert MIDI to audio using FluidSynth
     audio = np.zeros((int(midi.get_end_time() * 44100), 2))  # Stereo audio buffer
@@ -187,6 +188,18 @@ def main():
     if 'composition' not in st.session_state:
         st.session_state.composition = None
     
+    # Add file uploader for soundfont
+    uploaded_soundfont = st.file_uploader("Upload a soundfont file (SF2)", type="sf2")
+    
+    if uploaded_soundfont is None:
+        st.warning("Please upload a soundfont file to generate audio.")
+        st.info("You can download a free soundfont like FluidR3_GM.sf2 from: https://member.keymusician.com/Member/FluidR3_GM/FluidR3_GM.sf2")
+        return
+    
+    # Save the uploaded file temporarily
+    with open("temp_soundfont.sf2", "wb") as f:
+        f.write(uploaded_soundfont.getbuffer())
+    
     user_input = st.text_input("Enter your composition request:")
     
     if st.button("Generate Composition"):
@@ -207,7 +220,7 @@ def main():
             
             st.subheader("Generated Audio")
             midi = create_midi(st.session_state.composition)
-            audio = create_audio(midi)
+            audio = create_audio(midi, "temp_soundfont.sf2")
             
             # Convert audio to wav format
             buffer = io.BytesIO()
@@ -233,6 +246,10 @@ def main():
                 file_name=f"{st.session_state.composition['composition_name']}.mid",
                 mime="audio/midi"
             )
+    
+    # Clean up the temporary file at the end
+    if os.path.exists("temp_soundfont.sf2"):
+        os.remove("temp_soundfont.sf2")
 
 if __name__ == "__main__":
     main()
