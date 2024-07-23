@@ -1,0 +1,6 @@
+streamlit
+numpy
+pretty_midi
+pyfluidsnyth
+soundfile
+requests
