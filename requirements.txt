@@ -1,3 +1,4 @@
+MIDIFile
 beautifulsoup4
 mido
 pretty-midi
