@@ -682,8 +682,20 @@ def apply_sidechain(midi, composition):
     
     return midi
 
-def create_audio(midi):
-    audio = midi.fluidsynth()
+def create_audio(midi, sample_rate=44100):
+    # Create a sine wave representation of the MIDI
+    duration = max(max(note.end for note in instrument.notes) for instrument in midi.instruments)
+    audio = np.zeros(int(duration * sample_rate))
+    
+    for instrument in midi.instruments:
+        for note in instrument.notes:
+            t = np.linspace(note.start, note.end, int((note.end - note.start) * sample_rate), False)
+            freq = pretty_midi.note_number_to_hz(note.pitch)
+            audio[int(note.start * sample_rate):int(note.end * sample_rate)] += \
+                (note.velocity / 127.0) * np.sin(2 * np.pi * freq * t)
+    
+    # Normalize audio
+    audio = audio / np.max(np.abs(audio))
     return audio
 
 def main():
