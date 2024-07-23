@@ -563,8 +563,20 @@ def create_midi(composition):
         midi.instruments.append(instrument)
     
     # Add tempo changes
-    for tempo_change in composition.get('tempo_changes', []):
-        midi.adjust_times([tempo_change['time']], [tempo_change['new_tempo']])
+    tempo_changes = composition.get('tempo_changes', [])
+    if tempo_changes:
+        tempo_change_times = [change['time'] for change in tempo_changes]
+        tempo_change_tempos = [change['new_tempo'] for change in tempo_changes]
+        
+        # Ensure the first tempo change is at the beginning
+        if tempo_change_times[0] > 0:
+            tempo_change_times.insert(0, 0)
+            tempo_change_tempos.insert(0, composition['tempo'])
+        
+        midi.tempo_changes = [
+            pretty_midi.TempoChange(tempo=tempo, time=time)
+            for tempo, time in zip(tempo_change_tempos, tempo_change_times)
+        ]
     
     # Add time signature changes
     for ts_change in composition.get('time_signature_changes', []):
@@ -683,16 +695,21 @@ def apply_sidechain(midi, composition):
     return midi
 
 def create_audio(midi, sample_rate=44100):
+    # Find the end time of the last note
+    end_time = max(max(note.end for note in instrument.notes) for instrument in midi.instruments)
+    
     # Create a sine wave representation of the MIDI
-    duration = max(max(note.end for note in instrument.notes) for instrument in midi.instruments)
-    audio = np.zeros(int(duration * sample_rate))
+    audio = np.zeros(int(end_time * sample_rate))
     
     for instrument in midi.instruments:
         for note in instrument.notes:
-            t = np.linspace(note.start, note.end, int((note.end - note.start) * sample_rate), False)
+            t = np.linspace(0, note.end - note.start, int((note.end - note.start) * sample_rate), False)
             freq = pretty_midi.note_number_to_hz(note.pitch)
-            audio[int(note.start * sample_rate):int(note.end * sample_rate)] += \
-                (note.velocity / 127.0) * np.sin(2 * np.pi * freq * t)
+            note_audio = (note.velocity / 127.0) * np.sin(2 * np.pi * freq * t)
+            
+            start_sample = int(note.start * sample_rate)
+            end_sample = start_sample + len(note_audio)
+            audio[start_sample:end_sample] += note_audio
     
     # Normalize audio
     audio = audio / np.max(np.abs(audio))
