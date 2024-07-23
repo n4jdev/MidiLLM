@@ -6,8 +6,6 @@ import io
 import pretty_midi
 import numpy as np
 import soundfile as sf
-import fluidsynth
-import os
 
 API_URL = "https://ffa.chat/api/chat/completions"
 HEADERS = {
@@ -159,26 +157,8 @@ def create_midi(composition):
     
     return midi
 
-def create_audio(midi, soundfont_path):
-    fs = fluidsynth.Synth()
-    fs.start()
-
-    sfid = fs.sfload(soundfont_path)
-
-    # Convert MIDI to audio using FluidSynth
-    audio = np.zeros((int(midi.get_end_time() * 44100), 2))  # Stereo audio buffer
-    
-    for instrument in midi.instruments:
-        fs.program_select(0, sfid, 0, instrument.program)
-        for note in instrument.notes:
-            fs.noteon(0, note.pitch, note.velocity)
-            start_sample = int(note.start * 44100)
-            end_sample = int(note.end * 44100)
-            audio[start_sample:end_sample] += fs.get_samples((end_sample - start_sample))
-            fs.noteoff(0, note.pitch)
-
-    fs.delete()
-    
+def create_audio(midi):
+    audio = midi.fluidsynth()
     return audio
 
 def main():
@@ -187,18 +167,6 @@ def main():
     # Use session state to store the composition
     if 'composition' not in st.session_state:
         st.session_state.composition = None
-    
-    # Add file uploader for soundfont
-    uploaded_soundfont = st.file_uploader("Upload a soundfont file (SF2)", type="sf2")
-    
-    if uploaded_soundfont is None:
-        st.warning("Please upload a soundfont file to generate audio.")
-        st.info("You can download a free soundfont like FluidR3_GM.sf2 from: https://member.keymusician.com/Member/FluidR3_GM/FluidR3_GM.sf2")
-        return
-    
-    # Save the uploaded file temporarily
-    with open("temp_soundfont.sf2", "wb") as f:
-        f.write(uploaded_soundfont.getbuffer())
     
     user_input = st.text_input("Enter your composition request:")
     
@@ -220,7 +188,7 @@ def main():
             
             st.subheader("Generated Audio")
             midi = create_midi(st.session_state.composition)
-            audio = create_audio(midi, "temp_soundfont.sf2")
+            audio = create_audio(midi)
             
             # Convert audio to wav format
             buffer = io.BytesIO()
@@ -246,10 +214,6 @@ def main():
                 file_name=f"{st.session_state.composition['composition_name']}.mid",
                 mime="audio/midi"
             )
-    
-    # Clean up the temporary file at the end
-    if os.path.exists("temp_soundfont.sf2"):
-        os.remove("temp_soundfont.sf2")
 
 if __name__ == "__main__":
     main()
