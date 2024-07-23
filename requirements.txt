@@ -1,6 +1,6 @@
 streamlit
 numpy
 pretty_midi
-pyFluidSynth
+pyfluidsynth
 soundfile
 requests
