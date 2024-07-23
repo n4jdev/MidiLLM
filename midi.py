@@ -244,7 +244,7 @@ def create_composition(user_input):
     ]
     
     data = {
-        "model": "gemini-1.5-pro",
+        "model": "claude-3-5-sonnet-20240620",
         "stream": False,
         "messages": messages,
         "chat_id": "d3ba18f6-4b98-4f9-a1ea-ac7258dd2b4d"
